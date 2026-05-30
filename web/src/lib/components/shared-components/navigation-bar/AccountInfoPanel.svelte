@@ -8,7 +8,7 @@
   import { userInteraction } from '$lib/stores/user.svelte';
   import { getAboutInfo, type ServerAboutResponseDto } from '@immich/sdk';
   import { Button, Icon, IconButton, modalManager } from '@immich/ui';
-  import { mdiCog, mdiLogout, mdiPencil, mdiWrench } from '@mdi/js';
+  import { mdiCog, mdiLogout, mdiOpenInNew, mdiPencil, mdiWrench } from '@mdi/js';
   import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
   import { fade } from 'svelte/transition';
@@ -61,6 +61,22 @@
     </div>
 
     <div class="flex flex-col gap-1">
+      <Button
+        href="https://app.pixly.cloud"
+        target="_blank"
+        rel="noopener noreferrer"
+        onclick={onClose}
+        size="small"
+        color="primary"
+        variant="ghost"
+        shape="round"
+        class="border border-immich-primary/30 hover:bg-immich-primary/10 dark:border-immich-dark-primary/30 dark:bg-gray-500 dark:text-white dark:hover:bg-immich-dark-primary/50"
+      >
+        <div class="flex place-content-center place-items-center gap-2 px-2 text-center">
+          <Icon icon={mdiOpenInNew} size="18" aria-hidden />
+          Pixly Settings
+        </div>
+      </Button>
       <Button
         href={Route.userSettings()}
         onclick={onClose}
