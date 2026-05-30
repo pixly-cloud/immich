@@ -22,6 +22,13 @@
 
   let info: ServerAboutResponseDto | undefined = $state();
 
+  // Route Pixly Settings to the correct control plane based on the current hostname.
+  // Dev tenants (*.dev.pixly.cloud) link to app.dev.pixly.cloud; production links to app.pixly.cloud.
+  const pixlyAppHost =
+    typeof window !== 'undefined' && window.location.hostname.endsWith('.dev.pixly.cloud')
+      ? 'https://app.dev.pixly.cloud'
+      : 'https://app.pixly.cloud';
+
   onMount(async () => {
     info = userInteraction.aboutInfo ?? (await getAboutInfo());
   });
@@ -62,7 +69,7 @@
 
     <div class="flex flex-col gap-1">
       <Button
-        href="https://app.pixly.cloud"
+        href={pixlyAppHost}
         target="_blank"
         rel="noopener noreferrer"
         onclick={onClose}
