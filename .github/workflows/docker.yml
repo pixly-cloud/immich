@@ -1,12 +1,9 @@
 name: Docker
 
+# Disabled in Pixly fork — upstream ML image workflows do not apply.
+# Retained to avoid merge conflicts on upstream sync. Trigger manually if needed.
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-  pull_request:
-  release:
-    types: [published]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
