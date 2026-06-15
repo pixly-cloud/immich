@@ -41,5 +41,5 @@ jobs:
           file: server/Dockerfile
           push: true
           tags: |
-            ghcr.io/spikehuntington/immich-server:${{ steps.version.outputs.version }}
-            ghcr.io/spikehuntington/immich-server:latest
+            ghcr.io/pixly-cloud/immich-server:${{ steps.version.outputs.version }}
+            ghcr.io/pixly-cloud/immich-server:latest
