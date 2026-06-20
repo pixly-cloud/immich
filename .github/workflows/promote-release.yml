@@ -1,0 +1,77 @@
+name: Promote upstream release into Pixly fork
+
+# One button to turn an upstream Immich release into a deployable Pixly image.
+#
+# Upstream tags land in pixly-cloud/immich-base daily (PIXLY-99). This workflow
+# takes one of those tags, replays the Pixly branding overlay (the commits on
+# this branch) on top of it, tags it here, and triggers build-publish.yml to
+# push ghcr.io/pixly-cloud/immich-server:<version>. Deploy that tag per env.
+#
+# No secrets required: pushes the tag and triggers the build with the built-in
+# GITHUB_TOKEN. (The tag push itself can't trigger build-publish.yml — GitHub
+# suppresses workflow-triggers-workflow for GITHUB_TOKEN — so we dispatch it
+# explicitly at the end.)
+#
+# Dispatch from `main`. See Jira PIXLY-328.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Upstream release tag to promote (must exist in immich-base), e.g. v3.0.1"
+        required: true
+
+permissions:
+  contents: write   # push the release tag
+  actions: write    # trigger build-publish.yml
+
+concurrency:
+  group: promote-release
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Replay Pixly overlay onto the upstream tag and ship it
+        env:
+          TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git config user.name  "pixly-release-bot"
+          git config user.email "release-bot@users.noreply.github.com"
+
+          OVERLAY="$(git rev-parse HEAD)"   # this branch = the Pixly branding overlay
+
+          # Bring in the one pristine upstream tag from the public mirror.
+          git remote add base https://github.com/pixly-cloud/immich-base.git
+          git fetch --no-tags base "refs/tags/${TAG}:refs/tags/${TAG}"
+
+          # anchor = newest upstream commit common to the overlay and the target
+          # tag; everything after it on this branch is the Pixly delta.
+          ANCHOR="$(git merge-base "$OVERLAY" "refs/tags/${TAG}")"
+          echo "Replaying Pixly overlay ${ANCHOR}..${OVERLAY} onto ${TAG}:"
+          git log --oneline "${ANCHOR}..${OVERLAY}"
+
+          git checkout -B "rel/${TAG}" "refs/tags/${TAG}"
+          if ! git cherry-pick "${ANCHOR}..${OVERLAY}"; then
+            git cherry-pick --abort || true
+            echo "::error::Branding overlay conflicts with ${TAG}. Refresh it once:"
+            echo "    git checkout main && git fetch base && git rebase base/main"
+            echo "  resolve, push main, then re-run this workflow."
+            exit 1
+          fi
+
+          git tag -f "${TAG}"
+          git push --force origin "refs/tags/${TAG}"
+          echo "::notice::Tagged ${TAG} in the Pixly fork."
+
+          # The tag push won't fire build-publish.yml (GITHUB_TOKEN), so trigger it.
+          gh workflow run build-publish.yml --ref "${TAG}"
+          echo "::notice::Building image for ${TAG} -> ghcr.io/pixly-cloud/immich-server"
