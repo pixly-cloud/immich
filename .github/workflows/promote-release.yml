@@ -3,16 +3,18 @@ name: Promote upstream release
 # One button to turn an upstream Immich release into a deployable Pixly image.
 #
 # Upstream tags land in pixly-cloud/immich-base daily (PIXLY-99). This workflow
-# takes one of those tags, replays the Pixly branding overlay (the commits on
-# this branch) on top of it, tags it here, and triggers build-publish.yml to
-# push ghcr.io/pixly-cloud/immich-server:<version>. Deploy that tag per env.
+# starts from that pristine tag, lays the Pixly branding overlay (the net file
+# changes on this branch) on top, strips the inherited upstream workflows, tags
+# it here, and triggers build-publish.yml to push
+# ghcr.io/pixly-cloud/immich-server:<version>. Deploy that tag per environment.
+#
+# It applies the overlay BY FILE (take our version, honor our deletions) instead
+# of replaying commit history, so upstream churn on files we don't touch can
+# never cause a merge conflict. Files we DO edit are taken wholesale (our version
+# wins) — refresh them if upstream materially changes those specific files.
 #
 # No secrets required: pushes the tag and triggers the build with the built-in
-# GITHUB_TOKEN. (The tag push itself can't trigger build-publish.yml — GitHub
-# suppresses workflow-triggers-workflow for GITHUB_TOKEN — so we dispatch it
-# explicitly at the end.)
-#
-# Dispatch from `main`. See Jira PIXLY-328.
+# GITHUB_TOKEN. Dispatch from `main`. See Jira PIXLY-328.
 
 on:
   workflow_dispatch:
@@ -57,35 +59,42 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Replay Pixly overlay onto the upstream tag and ship it
+      - name: Apply the Pixly overlay onto the upstream tag and ship it
         env:
           TAG: ${{ inputs.tag }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          git config user.name  "pixly-release-bot"
-          git config user.email "release-bot@users.noreply.github.com"
+          git config user.name 'pixly-release-bot'
+          git config user.email 'release-bot@users.noreply.github.com'
 
           OVERLAY="$(git rev-parse HEAD)" # this branch = the Pixly branding overlay
 
-          # Bring in the one pristine upstream tag from the public mirror.
+          # Pristine upstream lives in the public mirror; fetch just the one tag.
           git remote add base https://github.com/pixly-cloud/immich-base.git
           git fetch --no-tags base "refs/tags/${TAG}:refs/tags/${TAG}"
 
-          # anchor = newest upstream commit common to the overlay and the target
-          # tag; everything after it on this branch is the Pixly delta.
+          # anchor = newest upstream commit common to the overlay and the target tag.
           ANCHOR="$(git merge-base "$OVERLAY" "refs/tags/${TAG}")"
-          echo "Replaying Pixly overlay ${ANCHOR}..${OVERLAY} onto ${TAG}:"
-          git log --oneline "${ANCHOR}..${OVERLAY}"
 
+          # Start from the pristine release, then lay our net file changes on top:
+          # take our version of every file we changed, honor every file we removed.
           git checkout -B "rel/${TAG}" "refs/tags/${TAG}"
-          if ! git cherry-pick "${ANCHOR}..${OVERLAY}"; then
-            git cherry-pick --abort || true
-            echo "::error::Branding overlay conflicts with ${TAG}. Refresh it once:"
-            echo "    git checkout main && git fetch base && git rebase base/main"
-            echo "  resolve, push main, then re-run this workflow."
-            exit 1
-          fi
+          while IFS= read -r p; do
+            [ -z "$p" ] && continue
+            if git cat-file -e "${OVERLAY}:${p}" 2>/dev/null; then
+              git checkout "$OVERLAY" -- "$p"
+            else
+              git rm -q --ignore-unmatch -- "$p" >/dev/null 2>&1 || true
+            fi
+          done < <(git diff --name-only "$ANCHOR" "$OVERLAY")
+
+          # Belt-and-braces: only our two workflows survive in the release tree.
+          find .github/workflows -maxdepth 1 -type f \
+            ! -name build-publish.yml ! -name promote-release.yml -delete 2>/dev/null || true
+
+          git add -A
+          git commit -q -m "Pixly overlay on upstream ${TAG}"
 
           git tag -f "${TAG}"
           git push --force \
