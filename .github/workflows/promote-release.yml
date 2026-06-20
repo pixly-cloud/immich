@@ -103,5 +103,5 @@ jobs:
           echo "::notice::Tagged ${TAG} in the Pixly fork."
 
           # The tag push won't fire build-publish.yml (GITHUB_TOKEN), so trigger it.
-          gh workflow run build-publish.yml --ref "${TAG}"
+          gh workflow run build-publish.yml --ref "${TAG}" -f tag="${TAG}"
           echo "::notice::Building image for ${TAG} -> ghcr.io/pixly-cloud/immich-server"
