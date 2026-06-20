@@ -72,14 +72,14 @@ jobs:
 
           # Pristine upstream lives in the public mirror; fetch just the one tag.
           git remote add base https://github.com/pixly-cloud/immich-base.git
-          git fetch --no-tags base "refs/tags/${TAG}:refs/tags/${TAG}"
+          git fetch --no-tags --force base "refs/tags/${TAG}:refs/pixly/upstream"
 
           # anchor = newest upstream commit common to the overlay and the target tag.
-          ANCHOR="$(git merge-base "$OVERLAY" "refs/tags/${TAG}")"
+          ANCHOR="$(git merge-base "$OVERLAY" refs/pixly/upstream)"
 
           # Start from the pristine release, then lay our net file changes on top:
           # take our version of every file we changed, honor every file we removed.
-          git checkout -B "rel/${TAG}" "refs/tags/${TAG}"
+          git checkout -B "rel/${TAG}" refs/pixly/upstream
           while IFS= read -r p; do
             [ -z "$p" ] && continue
             if git cat-file -e "${OVERLAY}:${p}" 2>/dev/null; then
