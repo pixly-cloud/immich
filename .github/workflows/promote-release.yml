@@ -18,7 +18,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Upstream release tag to promote (must exist in immich-base), e.g. v3.0.1"
+        description: 'Upstream release tag to promote (must exist in immich-base), e.g. v3.0.1'
         required: true
 
 permissions:
