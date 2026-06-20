@@ -1,4 +1,4 @@
-name: Promote upstream release into Pixly fork
+name: Promote upstream release
 
 # One button to turn an upstream Immich release into a deployable Pixly image.
 #
@@ -34,6 +34,24 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
+      - name: Validate the tag
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          # Format guard: reject typos like "3.0.1", "main", trailing spaces, etc.
+          if ! printf '%s' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$'; then
+            echo "::error::'$TAG' is not a valid release tag (expected e.g. v3.0.1 or v3.0.0-rc.2)."
+            exit 1
+          fi
+          # Authoritative check: the tag must actually exist upstream in immich-base.
+          if ! git ls-remote --exit-code --tags \
+                 https://github.com/pixly-cloud/immich-base.git "refs/tags/${TAG}" >/dev/null 2>&1; then
+            echo "::error::Tag '${TAG}' does not exist in immich-base. Available tags: https://github.com/pixly-cloud/immich-base/tags"
+            exit 1
+          fi
+          echo "Validated ${TAG}."
+
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
