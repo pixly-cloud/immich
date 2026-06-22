@@ -3,7 +3,6 @@ import {
   mdiAccountMultipleOutline,
   mdiAccountOutline,
   mdiArchiveArrowDownOutline,
-  mdiBookshelf,
   mdiCog,
   mdiContentDuplicate,
   mdiCrosshairsGps,
@@ -41,23 +40,12 @@ export const getPagesProvider = ($t: MessageFormatter) => {
       icon: mdiAccountMultipleOutline,
       onAction: () => goto(Route.users()),
     },
-    {
-      title: $t('admin.system_settings'),
-      description: $t('admin.settings_page_description'),
-      icon: mdiCog,
-      onAction: () => goto(Route.systemSettings()),
-    },
+    // Pixly: system settings & external libraries are managed by the platform and hidden from tenants.
     {
       title: $t('admin.queues'),
       description: $t('admin.queues_page_description'),
       icon: mdiSync,
       onAction: () => goto(Route.queues()),
-    },
-    {
-      title: $t('external_libraries'),
-      description: $t('admin.external_libraries_page_description'),
-      icon: mdiBookshelf,
-      onAction: () => goto(Route.libraries()),
     },
     {
       title: $t('server_stats'),
