@@ -1,19 +1,8 @@
-import { getServerVersion, listDatabaseBackups } from '@immich/sdk';
-import { authenticate } from '$lib/utils/auth';
-import { getFormatter } from '$lib/utils/i18n';
+import { redirect } from '@sveltejs/kit';
+import { Route } from '$lib/route';
 import type { PageLoad } from './$types';
 
-export const load = (async ({ url }) => {
-  await authenticate(url, { admin: true });
-  const { backups } = await listDatabaseBackups();
-  const $t = await getFormatter();
-  const { major, minor, patch } = await getServerVersion();
-
-  return {
-    backups,
-    expectedVersion: `${major}.${minor}.${patch}`,
-    meta: {
-      title: $t('admin.maintenance_settings'),
-    },
-  };
-}) satisfies PageLoad;
+// Pixly: maintenance (database backups/restore, maintenance mode) is managed by the
+// platform and not exposed to tenants. Hidden from the admin nav and blocked here so
+// direct URLs can't reach the page.
+export const load = (() => redirect(307, Route.users())) satisfies PageLoad;

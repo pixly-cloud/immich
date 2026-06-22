@@ -100,7 +100,7 @@
       </Button>
       {#if authManager.user.isAdmin}
         <Button
-          href={Route.systemSettings()}
+          href={Route.users()}
           onclick={onClose}
           shape="round"
           variant="ghost"
