@@ -1,0 +1,107 @@
+name: Promote upstream release
+
+# One button to turn an upstream Immich release into a deployable Pixly image.
+#
+# Upstream tags land in pixly-cloud/immich-base daily (PIXLY-99). This workflow
+# starts from that pristine tag, lays the Pixly branding overlay (the net file
+# changes on this branch) on top, strips the inherited upstream workflows, tags
+# it here, and triggers build-publish.yml to push
+# ghcr.io/pixly-cloud/immich-server:<version>. Deploy that tag per environment.
+#
+# It applies the overlay BY FILE (take our version, honor our deletions) instead
+# of replaying commit history, so upstream churn on files we don't touch can
+# never cause a merge conflict. Files we DO edit are taken wholesale (our version
+# wins) — refresh them if upstream materially changes those specific files.
+#
+# No secrets required: pushes the tag and triggers the build with the built-in
+# GITHUB_TOKEN. Dispatch from `main`. See Jira PIXLY-328.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Upstream release tag to promote (must exist in immich-base), e.g. v3.0.1'
+        required: true
+
+permissions:
+  contents: write # push the release tag
+  actions: write # trigger build-publish.yml
+
+concurrency:
+  group: promote-release
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Validate the tag
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          # Format guard: reject typos like "3.0.1", "main", trailing spaces, etc.
+          if ! printf '%s' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$'; then
+            echo "::error::'$TAG' is not a valid release tag (expected e.g. v3.0.1 or v3.0.0-rc.2)."
+            exit 1
+          fi
+          # Authoritative check: the tag must actually exist upstream in immich-base.
+          if ! git ls-remote --exit-code --tags \
+                 https://github.com/pixly-cloud/immich-base.git "refs/tags/${TAG}" >/dev/null 2>&1; then
+            echo "::error::Tag '${TAG}' does not exist in immich-base. Available tags: https://github.com/pixly-cloud/immich-base/tags"
+            exit 1
+          fi
+          echo "Validated ${TAG}."
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Apply the Pixly overlay onto the upstream tag and ship it
+        env:
+          TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git config user.name 'pixly-release-bot'
+          git config user.email 'release-bot@users.noreply.github.com'
+
+          OVERLAY="$(git rev-parse HEAD)" # this branch = the Pixly branding overlay
+
+          # Pristine upstream lives in the public mirror; fetch just the one tag.
+          git remote add base https://github.com/pixly-cloud/immich-base.git
+          git fetch --no-tags --force base "refs/tags/${TAG}:refs/pixly/upstream"
+
+          # anchor = newest upstream commit common to the overlay and the target tag.
+          ANCHOR="$(git merge-base "$OVERLAY" refs/pixly/upstream)"
+
+          # Start from the pristine release, then lay our net file changes on top:
+          # take our version of every file we changed, honor every file we removed.
+          git checkout -B "rel/${TAG}" refs/pixly/upstream
+          while IFS= read -r p; do
+            [ -z "$p" ] && continue
+            if git cat-file -e "${OVERLAY}:${p}" 2>/dev/null; then
+              git checkout "$OVERLAY" -- "$p"
+            else
+              git rm -q --ignore-unmatch -- "$p" >/dev/null 2>&1 || true
+            fi
+          done < <(git diff --name-only "$ANCHOR" "$OVERLAY")
+
+          # Belt-and-braces: only our two workflows survive in the release tree.
+          find .github/workflows -maxdepth 1 -type f \
+            ! -name build-publish.yml ! -name promote-release.yml -delete 2>/dev/null || true
+
+          git add -A
+          git commit -q -m "Pixly overlay on upstream ${TAG}"
+
+          git tag -f "${TAG}"
+          git push --force \
+            "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+            "refs/tags/${TAG}"
+          echo "::notice::Tagged ${TAG} in the Pixly fork."
+
+          # The tag push won't fire build-publish.yml (GITHUB_TOKEN), so trigger it.
+          gh workflow run build-publish.yml --ref "${TAG}" -f tag="${TAG}"
+          echo "::notice::Building image for ${TAG} -> ghcr.io/pixly-cloud/immich-server"

@@ -8,7 +8,7 @@
   import { userInteraction } from '$lib/stores/user.svelte';
   import { getAboutInfo, type ServerAboutResponseDto } from '@immich/sdk';
   import { Button, Icon, IconButton, modalManager } from '@immich/ui';
-  import { mdiCog, mdiLogout, mdiPencil, mdiWrench } from '@mdi/js';
+  import { mdiCog, mdiLogout, mdiOpenInNew, mdiPencil, mdiWrench } from '@mdi/js';
   import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
   import { fade } from 'svelte/transition';
@@ -21,6 +21,13 @@
   let { onClose }: Props = $props();
 
   let info: ServerAboutResponseDto | undefined = $state();
+
+  // Route Pixly Settings to the correct control plane based on the current hostname.
+  // Dev tenants (*.dev.pixly.cloud) link to app.dev.pixly.cloud; production links to app.pixly.cloud.
+  const pixlyAppHost =
+    typeof window !== 'undefined' && window.location.hostname.endsWith('.dev.pixly.cloud')
+      ? 'https://app.dev.pixly.cloud'
+      : 'https://app.pixly.cloud';
 
   onMount(async () => {
     info = userInteraction.aboutInfo ?? (await getAboutInfo());
@@ -62,6 +69,22 @@
 
     <div class="flex flex-col gap-1">
       <Button
+        href={pixlyAppHost}
+        target="_blank"
+        rel="noopener noreferrer"
+        onclick={onClose}
+        size="small"
+        color="primary"
+        variant="ghost"
+        shape="round"
+        class="border border-immich-primary/30 hover:bg-immich-primary/10 dark:border-immich-dark-primary/30 dark:bg-gray-500 dark:text-white dark:hover:bg-immich-dark-primary/50"
+      >
+        <div class="flex place-content-center place-items-center gap-2 px-2 text-center">
+          <Icon icon={mdiOpenInNew} size="18" aria-hidden />
+          Pixly Settings
+        </div>
+      </Button>
+      <Button
         href={Route.userSettings()}
         onclick={onClose}
         size="small"
@@ -77,7 +100,7 @@
       </Button>
       {#if authManager.user.isAdmin}
         <Button
-          href={Route.systemSettings()}
+          href={Route.users()}
           onclick={onClose}
           shape="round"
           variant="ghost"
