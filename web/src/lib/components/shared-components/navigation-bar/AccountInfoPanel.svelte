@@ -25,7 +25,7 @@
   // Link to the Pixly account portal for this environment.
   const pixlyAppHost =
     typeof window !== 'undefined' && window.location.hostname.endsWith('.dev.pixly.cloud')
-      ? 'https://app.dev.pixly.cloud'
+      ? 'https://app-dev.pixly.cloud'
       : 'https://app.pixly.cloud';
 
   onMount(async () => {
