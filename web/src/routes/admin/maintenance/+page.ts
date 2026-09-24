@@ -1,23 +1,6 @@
-import { getIntegrityReportSummary, getServerVersion, listDatabaseBackups } from '@immich/sdk';
-import { authenticate } from '$lib/utils/auth';
-import { getFormatter } from '$lib/utils/i18n';
+import { redirect } from '@sveltejs/kit';
+import { Route } from '$lib/route';
 import type { PageLoad } from './$types';
 
-export const load = (async ({ url }) => {
-  await authenticate(url, { admin: true });
-
-  const integrityReport = await getIntegrityReportSummary();
-  const { major, minor, patch } = await getServerVersion();
-  const { backups } = await listDatabaseBackups();
-
-  const $t = await getFormatter();
-
-  return {
-    backups,
-    integrityReport,
-    expectedVersion: `${major}.${minor}.${patch}`,
-    meta: {
-      title: $t('admin.maintenance_settings'),
-    },
-  };
-}) satisfies PageLoad;
+// Pixly: maintenance is managed by the platform.
+export const load = (() => redirect(307, Route.users())) satisfies PageLoad;
