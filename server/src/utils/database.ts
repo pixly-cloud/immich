@@ -49,11 +49,14 @@ import { AssetExifTable } from 'src/schema/tables/asset-exif.table';
 import { AudioStreamInfo, VectorExtension, VideoFormat, VideoPacketInfo, VideoStreamInfo } from 'src/types';
 import { fromChecksum } from 'src/utils/request';
 
-export const getKyselyConfig = (connection: DatabaseConnectionParams): KyselyConfig => {
+export const getKyselyConfig = (connection: DatabaseConnectionParams, maxConnections?: number): KyselyConfig => {
   return {
     dialect: new PostgresJSDialect({
       postgres: createPostgres({
         connection,
+        // Undefined falls through to createPostgres' own default of 10, so the
+        // stock behaviour is unchanged when DB_POOL_SIZE is not set.
+        maxConnections,
         onNotice: (notice: Notice) => {
           if (notice['severity'] !== 'NOTICE') {
             console.warn('Postgres notice:', notice);

@@ -26,6 +26,7 @@ const resetEnv = () => {
     'DB_USERNAME',
     'DB_PASSWORD',
     'DB_DATABASE_NAME',
+    'DB_POOL_SIZE',
     'DB_SSL_MODE',
     'DB_SKIP_MIGRATIONS',
     'DB_VECTOR_EXTENSION',
@@ -127,9 +128,21 @@ describe('getEnv', () => {
           username: 'postgres',
           password: 'postgres',
         },
+        poolSize: undefined,
         skipMigrations: false,
         vectorExtension: undefined,
       });
+    });
+
+    it('should read DB_POOL_SIZE', () => {
+      process.env.DB_POOL_SIZE = '3';
+      const { database } = getEnv();
+      expect(database).toMatchObject({ poolSize: 3 });
+    });
+
+    it('should reject a non-positive DB_POOL_SIZE', () => {
+      process.env.DB_POOL_SIZE = '0';
+      expect(() => getEnv()).toThrow(/DB_POOL_SIZE/);
     });
 
     it('should validate DB_SSL_MODE', () => {

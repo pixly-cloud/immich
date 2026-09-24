@@ -73,6 +73,7 @@ export const EnvSchema = z
     DB_HOSTNAME: z.string().optional(),
     DB_PASSWORD: z.string().optional(),
     DB_PORT: z.coerce.number().int().optional(),
+    DB_POOL_SIZE: z.coerce.number().int().positive().optional(),
     DB_SKIP_MIGRATIONS: stringBool.optional(),
     DB_SSL_MODE: DatabaseSslModeSchema.optional(),
     DB_URL: z.string().optional(),

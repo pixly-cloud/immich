@@ -83,6 +83,7 @@ Information on the current workers can be found [here](/administration/jobs-work
 | `DB_PASSWORD`                       | Database password                                                                      | `postgres` | server, database<sup>\*1</sup> |
 | `DB_DATABASE_NAME`                  | Database name                                                                          |  `immich`  | server, database<sup>\*1</sup> |
 | `DB_SSL_MODE`                       | Database SSL mode                                                                      |            | server                         |
+| `DB_POOL_SIZE`                      | Max database connections held by each worker's pool<sup>\*4</sup>                      |    `10`    | server                         |
 | `DB_VECTOR_EXTENSION`<sup>\*2</sup> | Database vector extension (one of [`vectorchord`, `pgvector`])                         |            | server                         |
 | `DB_SKIP_MIGRATIONS`                | Whether to skip running migrations on startup (one of [`true`, `false`])               |  `false`   | server                         |
 | `DB_STORAGE_TYPE`                   | Optimize concurrent IO on SSDs or sequential IO on HDDs ([`SSD`, `HDD`])<sup>\*3</sup> |   `SSD`    | database                       |
@@ -92,6 +93,8 @@ Information on the current workers can be found [here](/administration/jobs-work
 \*2: If not provided, the appropriate extension to use is auto-detected at startup by inspecting the database. When multiple extensions are installed, the order of preference is VectorChord, pgvector.
 
 \*3: Uses either [`postgresql.ssd.conf`](https://github.com/immich-app/base-images/blob/main/postgres/postgresql.ssd.conf) or [`postgresql.hdd.conf`](https://github.com/immich-app/base-images/blob/main/postgres/postgresql.hdd.conf) which mainly controls the Postgres `effective_io_concurrency` setting to allow for concurrenct IO on SSDs and sequential IO on HDDs.
+
+\*4: Applies per worker process (the server runs `api` and `microservices` workers). Connections are opened lazily, so this is an upper limit.
 
 :::info
 

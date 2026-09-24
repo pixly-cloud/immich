@@ -57,7 +57,7 @@ const { bull, cls, database, otel } = configRepository.getEnv();
 
 const commonImports = [
   ClsModule.forRoot(cls.config),
-  KyselyModule.forRoot(getKyselyConfig(database.config)),
+  KyselyModule.forRoot(getKyselyConfig(database.config, database.poolSize)),
   OpenTelemetryModule.forRoot(otel),
 ];
 

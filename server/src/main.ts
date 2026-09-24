@@ -45,7 +45,8 @@ class Workers {
 
   private async isMaintenanceMode(): Promise<boolean> {
     const { database } = new ConfigRepository().getEnv();
-    const { log: _, ...kyselyConfig } = getKyselyConfig(database.config);
+    // Single-query probe on a short-lived instance, so one connection is enough.
+    const { log: _, ...kyselyConfig } = getKyselyConfig(database.config, 1);
     const kysely = new Kysely<DB>(kyselyConfig);
     const systemMetadataRepository = new SystemMetadataRepository(kysely);
 
@@ -66,7 +67,8 @@ class Workers {
 
   private async waitForFreeLock() {
     const { database } = new ConfigRepository().getEnv();
-    const kysely = new Kysely<DB>(getKyselyConfig(database.config));
+    // Only polls a single advisory lock, so one connection is enough.
+    const kysely = new Kysely<DB>(getKyselyConfig(database.config, 1));
 
     let isLocked = false;
     while (!isLocked) {

@@ -64,6 +64,11 @@ export interface EnvData {
 
   database: {
     config: DatabaseConnectionParams;
+    /**
+     * Max connections held by this worker's postgres.js pool (`DB_POOL_SIZE`).
+     * Undefined keeps the library default of 10.
+     */
+    poolSize?: number;
     skipMigrations: boolean;
     vectorExtension?: VectorExtension;
   };
@@ -309,6 +314,7 @@ const getEnv = (): EnvData => {
 
     database: {
       config: databaseConnection,
+      poolSize: dto.DB_POOL_SIZE,
       skipMigrations: dto.DB_SKIP_MIGRATIONS ?? false,
       vectorExtension,
     },
