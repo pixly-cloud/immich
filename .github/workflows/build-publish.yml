@@ -1,0 +1,78 @@
+name: Build and publish immich-server
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Git ref to build (branch, tag or commit)'
+        required: true
+      image_tag:
+        description: 'Override the image tag (default: <version>-pixly.<short-sha>)'
+        required: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.tag }}
+          persist-credentials: false
+
+      # The server reports its version from server/package.json, so the image tag
+      # is derived from that file. Tag pushes publish the bare version; manual
+      # builds get a -pixly.<sha> suffix so every build has a unique tag.
+      - name: Read server version
+        id: version
+        env:
+          IMAGE_TAG: ${{ inputs.image_tag }}
+        run: |
+          SERVER_VERSION=$(jq -r '.version' server/package.json)
+          SOURCE_SHA=$(git rev-parse --short=7 HEAD)
+          if [ -n "$IMAGE_TAG" ]; then
+            VERSION="$IMAGE_TAG"
+          elif [ "$GITHUB_EVENT_NAME" = 'push' ]; then
+            VERSION="$SERVER_VERSION"
+          else
+            VERSION="${SERVER_VERSION}-pixly.${SOURCE_SHA}"
+          fi
+          echo "server_version=${SERVER_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Publishing ghcr.io/pixly-cloud/immich-server:${VERSION} from ${SOURCE_SHA}"
+
+      - name: Check the tag matches the server version
+        env:
+          IMAGE_TAG: ${{ steps.version.outputs.version }}
+          SERVER_VERSION: ${{ steps.version.outputs.server_version }}
+        run: |
+          if [ "${IMAGE_TAG%%-*}" != "$SERVER_VERSION" ]; then
+            echo "Refusing to publish '${IMAGE_TAG}': server/package.json is ${SERVER_VERSION}."
+            exit 1
+          fi
+          if [ "$GITHUB_EVENT_NAME" = 'push' ] && [ "${GITHUB_REF_NAME#v}" != "$SERVER_VERSION" ]; then
+            echo "Git tag ${GITHUB_REF_NAME} does not match server/package.json (${SERVER_VERSION})."
+            exit 1
+          fi
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: server/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/pixly-cloud/immich-server:${{ steps.version.outputs.version }}
