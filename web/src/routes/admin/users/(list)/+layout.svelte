@@ -1,18 +1,15 @@
 <script lang="ts">
   import AdminPageLayout from '$lib/components/layouts/AdminPageLayout.svelte';
-  import OnEvents from '$lib/components/OnEvents.svelte';
   import { Route } from '$lib/route';
-  import { getUserAdminActions, getUserAdminsActions } from '$lib/services/user-admin.service';
+  import { getUserAdminActions } from '$lib/services/user-admin.service';
   import { locale } from '$lib/stores/preferences.store';
   import { getByteUnitString } from '$lib/utils/byte-units';
-  import { searchUsersAdmin, type UserAdminResponseDto } from '@immich/sdk';
+  import { type UserAdminResponseDto } from '@immich/sdk';
   import {
-    CommandPaletteDefaultProvider,
     Container,
     ContextMenuButton,
     Icon,
     Link,
-    MenuItemType,
     Table,
     TableBody,
     TableCell,
@@ -32,26 +29,11 @@
 
   let { children, data }: Props = $props();
 
-  let users: UserAdminResponseDto[] = $state(data.users);
-
-  const onUpdate = async (user: UserAdminResponseDto) => {
-    const index = users.findIndex(({ id }) => id === user.id);
-    if (index === -1) {
-      users = await searchUsersAdmin({ withDeleted: true });
-    } else {
-      users[index] = user;
-    }
-  };
-
-  const onUserAdminDeleted = ({ id: userId }: { id: string }) => {
-    users = users.filter(({ id }) => id !== userId);
-  };
-
-  const { Create } = $derived(getUserAdminsActions($t));
+  const users: UserAdminResponseDto[] = $derived(data.users);
 
   const getActionsForUser = (user: UserAdminResponseDto) => {
-    const { Detail, Update, Delete, ResetPassword, ResetPinCode } = getUserAdminActions($t, user);
-    return [Detail, Update, ResetPassword, ResetPinCode, MenuItemType.Divider, Delete];
+    const { Detail } = getUserAdminActions($t, user);
+    return [Detail];
   };
 
   const classes = {
@@ -62,17 +44,7 @@
   };
 </script>
 
-<OnEvents
-  onUserAdminCreate={onUpdate}
-  onUserAdminUpdate={onUpdate}
-  onUserAdminDelete={onUpdate}
-  onUserAdminRestore={onUpdate}
-  {onUserAdminDeleted}
-/>
-
-<CommandPaletteDefaultProvider name={$t('users')} actions={[Create]} />
-
-<AdminPageLayout breadcrumbs={[{ title: data.meta.title }]} actions={[Create]}>
+<AdminPageLayout breadcrumbs={[{ title: data.meta.title }]}>
   <Container center size="large">
     <Table class="mt-4" striped spacing="small" size="small">
       <TableHeader>
