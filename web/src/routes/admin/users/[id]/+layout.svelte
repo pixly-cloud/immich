@@ -1,33 +1,16 @@
 <script lang="ts">
-  import { goto, invalidateAll } from '$app/navigation';
   import AdminCard from '$lib/components/AdminCard.svelte';
   import AdminPageLayout from '$lib/components/layouts/AdminPageLayout.svelte';
-  import OnEvents from '$lib/components/OnEvents.svelte';
   import ServerStatisticsCard from '$lib/components/server-statistics/ServerStatisticsCard.svelte';
   import UserAvatar from '$lib/components/shared-components/UserAvatar.svelte';
   import DeviceCard from '$lib/components/user-settings-page/DeviceCard.svelte';
   import FeatureSetting from './FeatureSetting.svelte';
   import { Route } from '$lib/route';
-  import { getUserAdminActions } from '$lib/services/user-admin.service';
   import { locale } from '$lib/stores/preferences.store';
   import { createDateFormatter, findLocale } from '$lib/utils';
   import { getBytesWithUnit } from '$lib/utils/byte-units';
-  import { CalendarHeatmapType, getUserCalendarHeatmapAdmin, type UserAdminResponseDto } from '@immich/sdk';
-  import {
-    Alert,
-    Badge,
-    CardTitle,
-    Code,
-    CommandPaletteDefaultProvider,
-    Container,
-    getByteUnitString,
-    Heading,
-    Icon,
-    MenuItemType,
-    Meter,
-    Stack,
-    Text,
-  } from '@immich/ui';
+  import { CalendarHeatmapType, getUserCalendarHeatmapAdmin } from '@immich/sdk';
+  import { Badge, CardTitle, Code, Container, getByteUnitString, Heading, Icon, Meter, Stack, Text } from '@immich/ui';
   import {
     mdiAccountOutline,
     mdiCameraIris,
@@ -38,7 +21,6 @@
     mdiDevices,
     mdiFeatureSearchOutline,
     mdiPlayCircle,
-    mdiTrashCanOutline,
   } from '@mdi/js';
   import type { Snippet } from 'svelte';
   import { t } from 'svelte-i18n';
@@ -70,44 +52,11 @@
     { from: 0.8, className: 'bg-warning' },
     { from: 0.95, className: 'bg-danger' },
   ];
-
-  const { ResetPassword, ResetPinCode, Update, Delete, Restore } = $derived(getUserAdminActions($t, user));
-
-  const onUpdate = async (update: UserAdminResponseDto) => {
-    if (update.id !== user.id) {
-      return;
-    }
-
-    data.user = update;
-    await invalidateAll();
-  };
-
-  const onUserAdminDeleted = async ({ id }: { id: string }) => {
-    if (id === user.id) {
-      await goto(Route.users());
-    }
-  };
 </script>
 
-<OnEvents
-  onUserAdminUpdate={onUpdate}
-  onUserAdminDelete={onUpdate}
-  onUserAdminRestore={onUpdate}
-  {onUserAdminDeleted}
-/>
-
-<CommandPaletteDefaultProvider name={$t('user')} actions={[ResetPassword, ResetPinCode, Update, Delete, Restore]} />
-
-<AdminPageLayout
-  breadcrumbs={[{ title: $t('admin.user_management'), href: Route.users() }, { title: user.name }]}
-  actions={[ResetPassword, ResetPinCode, Update, Restore, MenuItemType.Divider, Delete]}
->
+<AdminPageLayout breadcrumbs={[{ title: $t('admin.user_management'), href: Route.users() }, { title: user.name }]}>
   <div>
     <Container size="large" center>
-      {#if user.deletedAt}
-        <Alert color="danger" class="my-4" title={$t('user_has_been_deleted')} icon={mdiTrashCanOutline} />
-      {/if}
-
       <div class="grid w-full grid-cols-1 gap-4 lg:grid-cols-2">
         <div class="col-span-full my-4 flex flex-col gap-4">
           <div class="flex items-center gap-4">
