@@ -1,3 +1,8 @@
+> [!NOTE]
+> This is Pixly's modified version of [Immich](https://github.com/immich-app/immich), licensed under the AGPL-3.0.
+> The complete corresponding source for the server Pixly runs is this repository, [github.com/pixly-cloud/immich](https://github.com/pixly-cloud/immich).
+> Each server's About dialog links to the exact commit it was built from.
+
 <p align="center"> 
   <br/>
   <a href="https://opensource.org/license/agpl-v3"><img src="https://img.shields.io/badge/License-AGPL_v3-blue.svg?color=3F51B5&style=for-the-badge&label=License&logoColor=000000&labelColor=ececec" alt="License: AGPLv3"></a>

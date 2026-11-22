@@ -20,10 +20,41 @@ permissions:
 jobs:
   build-push:
     runs-on: ubuntu-latest
+    # The release environment only accepts runs from main or a v* tag (both
+    # protected by repository rulesets), so a build can't start from any other
+    # branch.
+    environment: release
     steps:
+      # A tag push builds the protected tag itself. A manual build must name a
+      # v* tag or a commit already on main, so nothing unreviewed is published.
+      - name: Resolve and check the source commit
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_REF: ${{ inputs.tag }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = 'push' ]; then
+            SOURCE_REF="$GITHUB_REF_NAME"
+            SOURCE_SHA="$GITHUB_SHA"
+          else
+            SOURCE_REF="$INPUT_REF"
+            if [[ "$INPUT_REF" == v* ]] && SOURCE_SHA=$(gh api "repos/${GITHUB_REPOSITORY}/commits/refs/tags/${INPUT_REF}" --jq '.sha' 2>/dev/null); then
+              echo "Building release tag ${INPUT_REF} (${SOURCE_SHA})."
+            else
+              SOURCE_SHA=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${INPUT_REF}" --jq '.sha')
+              STATUS=$(gh api "repos/${GITHUB_REPOSITORY}/compare/${SOURCE_SHA}...main" --jq '.status')
+              if [ "$STATUS" != 'ahead' ] && [ "$STATUS" != 'identical' ]; then
+                echo "Refusing to build '${INPUT_REF}' (${SOURCE_SHA}): it is not on main and not a v* tag."
+                exit 1
+              fi
+            fi
+          fi
+          echo "ref=${SOURCE_REF}" >> "$GITHUB_OUTPUT"
+          echo "sha=${SOURCE_SHA}" >> "$GITHUB_OUTPUT"
+
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ steps.source.outputs.sha }}
           persist-credentials: false
 
       # The server reports its version from server/package.json, so the image tag
@@ -74,5 +105,12 @@ jobs:
           context: .
           file: server/Dockerfile
           push: true
+          # Source metadata for the About dialog: links users to the exact
+          # modified source this image was built from (AGPL-3.0 section 13).
+          build-args: |
+            BUILD_ID=${{ github.run_id }}
+            BUILD_IMAGE=${{ steps.version.outputs.version }}
+            BUILD_SOURCE_REF=${{ steps.source.outputs.ref }}
+            BUILD_SOURCE_COMMIT=${{ steps.source.outputs.sha }}
           tags: |
             ghcr.io/pixly-cloud/immich-server:${{ steps.version.outputs.version }}
