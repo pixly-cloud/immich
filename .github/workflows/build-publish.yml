@@ -59,7 +59,8 @@ jobs:
 
       # The server reports its version from server/package.json, so the image tag
       # is derived from that file. Tag pushes publish the bare version; manual
-      # builds get a -pixly.<sha> suffix so every build has a unique tag.
+      # builds get a -pixly.<sha> suffix (or an image_tag override that is not
+      # the bare version) so every build has a unique tag.
       - name: Read server version
         id: version
         env:
@@ -91,6 +92,12 @@ jobs:
             echo "Git tag ${GITHUB_REF_NAME} does not match server/package.json (${SERVER_VERSION})."
             exit 1
           fi
+          # The bare version belongs to the protected v* tag; a manual build
+          # (even with an image_tag override) must carry a suffix.
+          if [ "$GITHUB_EVENT_NAME" != 'push' ] && [ "$IMAGE_TAG" = "$SERVER_VERSION" ]; then
+            echo "Refusing to publish the bare version '${IMAGE_TAG}' from a manual build: push the v${SERVER_VERSION} tag instead."
+            exit 1
+          fi
 
       - name: Log in to GHCR
         uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
@@ -98,6 +105,20 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Published tags are immutable: tenants pin a version, so a tag that
+      # already exists is never overwritten. Fails closed on any lookup error.
+      - name: Refuse to overwrite a published tag
+        env:
+          IMAGE: ghcr.io/pixly-cloud/immich-server:${{ steps.version.outputs.version }}
+        run: |
+          if OUT=$(docker buildx imagetools inspect "$IMAGE" 2>&1); then
+            echo "Refusing to publish ${IMAGE}: that tag already exists."
+            exit 1
+          elif ! grep -qi 'not found' <<< "$OUT"; then
+            echo "Could not check whether ${IMAGE} exists: ${OUT}"
+            exit 1
+          fi
 
       - name: Build and push
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
